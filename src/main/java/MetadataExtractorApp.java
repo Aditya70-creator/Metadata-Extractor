@@ -8,29 +8,39 @@ import java.net.URL;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.lang.GeoLocation;
+import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.Tag;
 import com.drew.metadata.exif.GpsDirectory;
 
 public class MetadataExtractorApp {
-    public static void main(String[] args) {
-        String filePath ="C:\\Users\\KIIT\\Desktop\\20260516_134044.jpg"; 
+
+    public static void extractMediaProperties(String filePath) {
         File file = new File(filePath);
 
         if (!file.exists()) {
-            System.out.println("Error: File not found at " + file.getAbsolutePath());
+            System.out.println("[-] Error: File not found at target location -> " + file.getAbsolutePath());
             return;
         }
 
         try {
-            System.out.println("Extracting metadata from: " + file.getName() + "...\n");
+            System.out.println("[+] Processing Target Resource: " + file.getName() + "...\n");
             Metadata metadata = ImageMetadataReader.readMetadata(file);
 
-            // Gps Directory target karein
-            GpsDirectory gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
+            // Print normal segments and properties
+            for (Directory directory : metadata.getDirectories()) {
+                System.out.println("--- Segment: " + directory.getName() + " ---");
+                for (Tag tag : directory.getTags()) {
+                    System.out.println(tag.getTagName() + " : " + tag.getDescription());
+                }
+                System.out.println();
+            }
+
+            System.out.println("==================================================");
+            System.out.println("            GEOLOCATION INFRASTRUCTURE            ");
+            System.out.println("==================================================");
             
-            System.out.println("==================================================");
-            System.out.println("            GEOLOCATION DASHBOARD                 ");
-            System.out.println("==================================================");
+            GpsDirectory gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
             
             if (gpsDirectory != null) {
                 GeoLocation geoLocation = gpsDirectory.getGeoLocation();
@@ -42,43 +52,37 @@ public class MetadataExtractorApp {
                     System.out.println("Parsed Latitude  : " + latitude);
                     System.out.println("Parsed Longitude : " + longitude);
                     
-                    // 1. FREE REVERSE GEOCODING CALL (Fetching real location name)
-                    System.out.println("\nSearching map database for named location...");
-                    String realAddress = fetchLocationName(latitude, longitude);
-                    System.out.println("📍 RESOLVED LOCATION : " + realAddress);
+                    System.out.println("\nQuerying open-source database coordinates...");
+                    String resolvedLocation = fetchLocationName(latitude, longitude);
+                    System.out.println("📍 RESOLVED LOCATION : " + resolvedLocation);
                     
-                    // 2. Backup Clickable Link
-                    System.out.println("\n🔗 GOOGLE MAPS LINK:");
-                    System.out.println("https://www.google.com/maps?q=" + latitude + "," + longitude);
+                    System.out.println("\n🔗 GOOGLE MAPS NAVIGATION UTILITY:");
+                    System.out.println("https://www.google.com/maps?q=27.929870099722223,88.7331329" + latitude + "," + longitude);
                 } else {
-                    System.out.println("Location Data: GPS coordinates are zero.");
+                    System.out.println("Location Status: GPS markers initialized but coordinates evaluation returns zero.");
                 }
             } else {
-                System.out.println("Location Data: No GPS Metadata found.");
+                System.out.println("Location Status: No tracking vectors found in this file type format.");
             }
-            System.out.println("==================================================");
+            System.out.println("==================================================\n");
 
         } catch (ImageProcessingException | IOException e) {
-            System.err.println("Error: " + e.getMessage());
+            System.err.println("Execution Error Pipeline: " + e.getMessage());
         }
     }
 
-    // Yeh function internet se real address lekar aayega
+    // 2. NETWORK INTERACTION FOR REVERSE GEOCODING
     private static String fetchLocationName(double lat, double lon) {
         try {
-            // Rounding coordinates to 4 decimal places for better API matching
             String formattedLat = String.format(java.util.Locale.US, "%.4f", lat);
             String formattedLon = String.format(java.util.Locale.US, "%.4f", lon);
             
-            // Added &accept-language=en to get clean readable address structures
             String urlStr = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" 
                             + formattedLat + "&lon=" + formattedLon + "&accept-language=en";
             
             URL url = new URL(urlStr);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
-            
-            // Strict User-Agent setup to prevent server-side blockings
             conn.setRequestProperty("User-Agent", "Java-Metadata-Extractor-Agent");
 
             if (conn.getResponseCode() == 200) {
@@ -91,22 +95,21 @@ public class MetadataExtractorApp {
                 }
 
                 String json = response.toString();
-                // Extracting the complete address string safely
                 if (json.contains("\"display_name\":\"")) {
                     int start = json.indexOf("\"display_name\":\"") + 16;
                     int end = json.indexOf("\"", start);
                     return json.substring(start, end);
                 }
-            } else {
-                return "Server Response Error: Code " + conn.getResponseCode();
             }
-        } catch (java.net.MalformedURLException e) {
-            return "Network Error (Malformed URL): " + e.getMessage();
-        } catch (IOException e) {
-            return "Network Error (I/O): " + e.getMessage();
-        } catch (SecurityException e) {
-            return "Network Error (Security): " + e.getMessage();
+        } catch (IOException | RuntimeException e) {
+            return "Network Fault: Unable to resolve string address configurations.";
         }
-        return "Named address not found in global database limits.";
+        return "Target parameters dropped from active geographical database maps.";
+    }
+
+    // 3. MAIN BLOCK - MINIMAL UTILITY FOR LOCAL REPO TESTING ONLY
+    public static void main(String[] args) {
+        // Kisi bade project mein use karte waqt bas is single line function call ki zaroorat padegi
+        extractMediaProperties("SAMPLE IMAGE");
     }
 }
