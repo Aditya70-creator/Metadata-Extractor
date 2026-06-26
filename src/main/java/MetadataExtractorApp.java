@@ -7,11 +7,12 @@ import java.net.URL;
 
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
-import com.drew.lang.GeoLocation;
+import com.drew.lang.GeoLocation; 
 import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.Tag;
 import com.drew.metadata.exif.GpsDirectory;
+import com.drew.metadata.mp4.Mp4Directory; 
 
 public class MetadataExtractorApp {
 
@@ -40,30 +41,51 @@ public class MetadataExtractorApp {
             System.out.println("            GEOLOCATION INFRASTRUCTURE            ");
             System.out.println("==================================================");
             
+            double latitude = 0.0;
+            double longitude = 0.0;
+            boolean hasLocation = false;
+
+            // Pipeline 1: Image Core Evaluation (EXIF Standard)
             GpsDirectory gpsDirectory = metadata.getFirstDirectoryOfType(GpsDirectory.class);
-            
             if (gpsDirectory != null) {
                 GeoLocation geoLocation = gpsDirectory.getGeoLocation();
-                
                 if (geoLocation != null && !geoLocation.isZero()) {
-                    double latitude = geoLocation.getLatitude();
-                    double longitude = geoLocation.getLongitude();
-                    
-                    System.out.println("Parsed Latitude  : " + latitude);
-                    System.out.println("Parsed Longitude : " + longitude);
-                    
-                    System.out.println("\nQuerying open-source database coordinates...");
-                    String resolvedLocation = fetchLocationName(latitude, longitude);
-                    System.out.println("📍 RESOLVED LOCATION : " + resolvedLocation);
-                    
-                    System.out.println("\n🔗 GOOGLE MAPS NAVIGATION UTILITY:");
-                    System.out.println("https://www.google.com/maps?q=27.929870099722223,88.7331329" + latitude + "," + longitude);
-                } else {
-                    System.out.println("Location Status: GPS markers initialized but coordinates evaluation returns zero.");
+                    latitude = geoLocation.getLatitude();
+                    longitude = geoLocation.getLongitude();
+                    hasLocation = true;
                 }
-            } else {
-                System.out.println("Location Status: No tracking vectors found in this file type format.");
             }
+
+            // Pipeline 2: Video Core Fallback (MP4 Atom Mapping)
+            if (!hasLocation) {
+                Mp4Directory mp4Directory = metadata.getFirstDirectoryOfType(Mp4Directory.class);
+                if (mp4Directory != null) {
+                    Double latObj = mp4Directory.getDoubleObject(Mp4Directory.TAG_LATITUDE);
+                    Double lonObj = mp4Directory.getDoubleObject(Mp4Directory.TAG_LONGITUDE);
+                    
+                    if (latObj != null && lonObj != null && (latObj != 0.0 || lonObj != 0.0)) {
+                        latitude = latObj;
+                        longitude = lonObj;
+                        hasLocation = true;
+                    }
+                }
+            }
+
+            // Unified Processing Checkpoint
+            if (hasLocation) {
+                System.out.println("Parsed Latitude  : " + latitude);
+                System.out.println("Parsed Longitude : " + longitude);
+                
+                System.out.println("\nQuerying open-source database coordinates...");
+                String resolvedLocation = fetchLocationName(latitude, longitude);
+                System.out.println("📍 RESOLVED LOCATION : " + resolvedLocation);
+                
+                System.out.println("\n🔗 GOOGLE MAPS NAVIGATION UTILITY:");
+                System.out.println("https://www.google.com/maps?q=27.929870099722223,88.7331329" + latitude + "," + longitude);
+            } else {
+                System.out.println("Location Status: No tracking vectors found or extracted parameters return zero.");
+            }
+            
             System.out.println("==================================================\n");
 
         } catch (ImageProcessingException | IOException e) {
@@ -109,7 +131,7 @@ public class MetadataExtractorApp {
 
     // 3. MAIN BLOCK - MINIMAL UTILITY FOR LOCAL REPO TESTING ONLY
     public static void main(String[] args) {
-        // Kisi bade project mein use karte waqt bas is single line function call ki zaroorat padegi
-        extractMediaProperties("SAMPLE IMAGE");
+        // Direct absolute execution path setup
+        extractMediaProperties("SAMPLE MEDIA");
     }
 }
